@@ -31,6 +31,7 @@ public:
     // the corresponding ones in LLVM
     Value * value; 
     Type * type;
+    SymTblItem():myType(NULL), value(NULL), type(NULL){}
 };
 //used as symbol entry
 class CodeGenBlock{
@@ -66,6 +67,12 @@ public:
                 return 1;
         return 0;
     }
+    SymTblItem* findType(char * type){
+        for(int i = 0; i < typeTable.size(); i++)
+            if(std::strcmp(typeTable[i]->name.c_str(), type) == 0)
+                return typeTable[i];
+        return NULL;
+    }
 };
 
 class CodeGen{
@@ -86,20 +93,48 @@ public:
     // check if the identifier has been declared
     int checkId(char * id){
         for(int i = 0; i < blocks.size(); i++)
-            if(blocks[i]->checkId())
+            if(blocks[i]->checkId(id))
                 return 1;
         return 0;
     }
+    int checkType(char *type){
+        for(int i = 0; i < blocks.size(); i++)
+            if(blocks[i]->checkType(type))
+                return 1;
+        return 0;
+    }
+    // search from back to front
+    SymTblItem* findType(char * type){
+        for(int i = blocks.size()-1; i >= 0; i--)
+        {
+            SymTblItem * p = blocks[i]->findType(type);
+            if(p != NULL)
+                return p;
+        }
+        return NULL;
+    }
+    Type_t G_SYS_TYPE(AST_pNode_t p); 
     void G_program(AST_pNode_t p);
     Value* G_routine(AST_pNode_t p);
     Value* G_routine_head(AST_pNode_t p);
     Value* G_compound_stmt(AST_pNode_t p); // routine_body->compound_stmt
     Value* G_const_expr_list(AST_pNode_t p); //const_part->const_expr_list
-    Value* G_type_decl_list(AST_pNode_t p); // type_part->type_decl_list
-    Value* G_var_decl_list(AST_pNode_t p); // var_part->var_decl_list
-    Value* G_routine_part(AST_pNode_t p);
-
     Value* G_const_value(AST_pNode_t p);
+    Value* G_type_decl_list(AST_pNode_t p); // type_part->type_decl_list
+    Value* G_type_definition(AST_pNode_t p);
+    SymTblItem * G_type_decl(AST_pNode_t p);
+    SymTblItem * G_simple_type_decl(AST_pNode_t p);
+
+    Value* G_var_decl_list(AST_pNode_t p); // var_part->var_decl_list
+    void G_name_list(AST_pNode_t p, std::vector<std::string> & list);
+    // get the llvm type
+    Type * typeOf(BasicType* ty);
+    void AllocLocal(SymTblItem * pSym);
+
+
+    Value* G_routine_part(AST_pNode_t p);
+    Function* G_function_decl(AST_pNode_t p);
+    
 
     void G_error(AST_pNode_t p);
 };

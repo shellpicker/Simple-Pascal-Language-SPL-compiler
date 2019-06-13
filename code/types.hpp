@@ -2,7 +2,9 @@
 #define TYPES_H_
 #include <vector>
 enum Type_t {e_integer, e_char, e_boolean, e_real, 
-            e_enum, e_subrange, e_array, e_record, e_userdefined};
+            e_enum, e_subrange, e_array, e_record, e_userdefined,
+            e_pointer};
+
 class BasicType{
 public:
     enum Type_t type;
