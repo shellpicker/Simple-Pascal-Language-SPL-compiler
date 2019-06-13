@@ -71,7 +71,7 @@ Value* CodeGen::G_const_expr_list(AST_pNode_t p)
     }
     SymTblItem * pSym = new SymTblItem;
     pSym->isConst = 1;
-    pSym->name = std::string(p_NAME->data.text);
+   // pSym->name = std::string(p_NAME->data.text);
     pSym->value = G_const_value(p_const_value);
     AST_pNode_t child = p_const_value->child;
     switch (child->type)
@@ -91,7 +91,7 @@ Value* CodeGen::G_const_expr_list(AST_pNode_t p)
     default:
         break;
     }
-    pushIdTable(pSym);
+    pushIdTable(std::string(p_Name->data.text), pSym);
     return NULL;
 }
 Value * CodeGen::G_type_decl_list(AST_pNode_t p)
@@ -112,8 +112,7 @@ Value * CodeGen::G_type_definition(AST_pNode_t p)
         G_error(p_NAME);
     }
     SymTblItem * pSym = G_type_decl(p_NAME->sibling);
-    pSym->name = std::string(p_NAME->data.text);
-    pushTypeTable(pSym);
+    pushTypeTable(std::string(p_Name->data.text), pSym);
     return NULL;
 }
 SymTblItem * CodeGen::G_type_decl(AST_pNode_t p)
@@ -171,9 +170,8 @@ Value* CodeGen::G_var_decl_list(AST_pNode_t p)
     for(int i = 0; i < list.size(); i++)
     {
         SymTblItem * pSym = G_type_decl(p_type_decl);
-        pSym->name = list[i];
         AllocLocal(pSym);
-        pushIdTable(pSym);
+        pushIdTable(list[i], pSym);
     }
 }
 void CodeGen::AllocLocal(SymTblItem * pSym)

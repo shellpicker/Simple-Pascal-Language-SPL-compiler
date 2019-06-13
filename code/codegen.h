@@ -25,7 +25,6 @@ using namespace llvm;
 
 class SymTblItem{
 public:
-    std::string name; // name for identifiers or user-defined types
     BasicType * myType; // the type of the name
     int isConst;
     // the corresponding ones in LLVM
@@ -37,16 +36,14 @@ public:
 class CodeGenBlock{
 public:
     BasicBlock *block;
-    std::vector<SymTblItem *> idTable;
+    
+    std::map<std::string, SymTblItem*> idTable;
     // table for user defined types
-    std::vector<SymTblItem *> typeTable;
+    std::map<std::string, SymTblItem*> typeTable;
     // mapping of function and its representation in LLVM
     std::map<std::string, Function*> namedFuncs;
+    //std::map<int, 
     /*
-    // mapping of identifiers and Value* (used for llvm)
-    std::map<std::string, Value*> namedValues;
-    // mapping  of identifiers and its type
-    std::map<std::string, std::string> valueType;
     // mapping of user-defined types and its representation in LLVM
     std::map<std::string, Type*> namedTypes;
     
@@ -54,24 +51,20 @@ public:
     */
    // check if the identifier has been declared
     int checkId(char * id){
-        for(int i = 0; i < idTable.size(); i++)
-        {
-            if(std::strcmp(idTable[i]->name.c_str(), id) == 0)
-                return 1;
-        }
-        return 0;
+        return !(idTable.find(std::string(id)) == idtable.end());
     }
     int checkType(char *type){
-        for(int i = 0; i < typeTable.size(); i++)
-            if(std::strcmp(typeTable[i]->name.c_str(), type) == 0)
-                return 1;
-        return 0;
+        return !(typeTable.find(std::string(id)) == typeTable.end());
     }
-    SymTblItem* findType(char * type){
-        for(int i = 0; i < typeTable.size(); i++)
-            if(std::strcmp(typeTable[i]->name.c_str(), type) == 0)
-                return typeTable[i];
-        return NULL;
+    SymTblItem * findType(char * type){
+        if(!checkType(type))
+            return NULL;
+        return typeTable[std::string(type)];
+    }
+    SymTblItem * findId(char * id){
+        if(!checkId(id))
+            return NULL;
+        return typeTable[std::string(id)];
     }
 };
 
@@ -88,8 +81,8 @@ public:
     CodeGenBlock *currentTables(){ return blocks.back();}
     void pushBlock(BasicBlock *block) { blocks.push_back(new CodeGenBlock()); blocks.back()->block = block; }
     void popBlock() { CodeGenBlock *top = blocks.back(); blocks.pop_back(); delete top; }
-    void pushIdTable(SymTblItem * item){ blocks.back()->idTable.push_back(item);}
-    void pushTypeTable(SymTblItem * item){ blocks.back()->typeTable.push_back(item);}
+    void pushIdTable(std::string str, SymTblItem * item){ blocks.back()->idTable[str] = item;}
+    void pushTypeTable(std::string str, SymTblItem * item){ blocks.back()->typeTable[str] = item;}
     // check if the identifier has been declared
     int checkId(char * id){
         for(int i = 0; i < blocks.size(); i++)
@@ -108,6 +101,15 @@ public:
         for(int i = blocks.size()-1; i >= 0; i--)
         {
             SymTblItem * p = blocks[i]->findType(type);
+            if(p != NULL)
+                return p;
+        }
+        return NULL;
+    }
+    SymTblItem* findId(char * id){
+        for(int i = blocks.size()-1; i >= 0; i--)
+        {
+            SymTblItem * p = blocks[i]->findId(id);
             if(p != NULL)
                 return p;
         }
