@@ -22,15 +22,17 @@
 #include "AST.h"
 #include "types.hpp"
 using namespace llvm;
-
+#define MAXINT 0x7fffffff
 class SymTblItem{
 public:
     BasicType * myType; // the type of the name
     int isConst;
+    int isPtr;
     // the corresponding ones in LLVM
     Value * value; 
     Type * type;
-    SymTblItem():myType(NULL), value(NULL), type(NULL){}
+    SymTblItem():myType(NULL), value(NULL), type(NULL), isPtr(0), isConst(0){}
+    
 };
 //used as symbol entry
 class CodeGenBlock{
@@ -56,6 +58,9 @@ public:
     int checkType(char *type){
         return !(typeTable.find(std::string(id)) == typeTable.end());
     }
+    int checkFunc(char * func){
+        return !(namedFuncs.find(std::string(id)) == namedFuncs.end());
+    }
     SymTblItem * findType(char * type){
         if(!checkType(type))
             return NULL;
@@ -64,7 +69,12 @@ public:
     SymTblItem * findId(char * id){
         if(!checkId(id))
             return NULL;
-        return typeTable[std::string(id)];
+        return idTable[std::string(id)];
+    }
+    Function* findFunc(char * func){
+        if(!checkFunc(id))
+            return NULL;
+        return namedFuncs[std::string(id)];
     }
 };
 
@@ -79,6 +89,7 @@ public:
 public:
     BasicBlock *currentBlock() { return blocks.back()->block; }
     CodeGenBlock *currentTables(){ return blocks.back();}
+    CodeGenBlock *lastLastTables(){if(blocks.size() < 2 ) return NULL; return blocks[blocks.size()-2];}
     void pushBlock(BasicBlock *block) { blocks.push_back(new CodeGenBlock()); blocks.back()->block = block; }
     void popBlock() { CodeGenBlock *top = blocks.back(); blocks.pop_back(); delete top; }
     void pushIdTable(std::string str, SymTblItem * item){ blocks.back()->idTable[str] = item;}
@@ -115,17 +126,27 @@ public:
         }
         return NULL;
     }
+    Function* findFunc(char * func){
+        for(int i = blocks.size()-1; i >= 0; i--)
+        {
+            Function * p = blocks[i]->findFunc(func);
+            if(p != NULL)
+                return p;
+        }
+        return NULL;
+    }
+    int G_SYS_CON(AST_pNode_t p);
     Type_t G_SYS_TYPE(AST_pNode_t p); 
     void G_program(AST_pNode_t p);
     Value* G_routine(AST_pNode_t p);
     Value* G_routine_head(AST_pNode_t p);
     Value* G_compound_stmt(AST_pNode_t p); // routine_body->compound_stmt
     Value* G_const_expr_list(AST_pNode_t p); //const_part->const_expr_list
-    Value* G_const_value(AST_pNode_t p);
+    SymTblItem* G_const_value(AST_pNode_t p);
     Value* G_type_decl_list(AST_pNode_t p); // type_part->type_decl_list
     Value* G_type_definition(AST_pNode_t p);
-    SymTblItem * G_type_decl(AST_pNode_t p);
-    SymTblItem * G_simple_type_decl(AST_pNode_t p);
+    BasicType * G_type_decl(AST_pNode_t p);
+    BasicType * G_simple_type_decl(AST_pNode_t p);
 
     Value* G_var_decl_list(AST_pNode_t p); // var_part->var_decl_list
     void G_name_list(AST_pNode_t p, std::vector<std::string> & list);
@@ -136,8 +157,10 @@ public:
 
     Value* G_routine_part(AST_pNode_t p);
     Function* G_function_decl(AST_pNode_t p);
-    
-
+    Function* G_function_head(AST_pNode_t p);
+    void G_para_decl_list(AST_pNode_t p, std::vector<std::string>& names, 
+            std::vector<Type*> &types);
+    void G_para_type_list(AST_pNode_t p, std::vector<Type*> &list);
     void G_error(AST_pNode_t p);
 };
 
