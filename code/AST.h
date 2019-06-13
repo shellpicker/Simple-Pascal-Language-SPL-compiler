@@ -1,6 +1,7 @@
 #ifndef AST_H_
 #define AST_H_
 #include <stdlib.h>
+#include "types.hpp"
 // define a type for each non-terminal
 enum eNodeType_t{
     e_program, e_program_head, e_routine, e_sub_routine,
@@ -36,7 +37,7 @@ typedef struct AST_node_
         double real_value; // value for floating point
         char ch_value;
     }data;
-    
+    enum Type_t valueType;
 
     struct AST_node_ * sibling;
     struct AST_node_ * child;

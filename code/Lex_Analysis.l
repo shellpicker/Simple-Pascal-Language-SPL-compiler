@@ -177,6 +177,7 @@ MUTI_COMMENT    "(*"[_a-zA-Z0-9\n \r\t]*"*)"
                     yylval.node->type = e_INTEGER;
                     yylval.node->line = cur_line_num;
                     yylval.node->data.int_value = atoi(yytext);
+                    yylval.node->valueType = e_integer;
                     return T_INTEGER;
                     }
 {REAL}              {
@@ -184,6 +185,7 @@ MUTI_COMMENT    "(*"[_a-zA-Z0-9\n \r\t]*"*)"
                     yylval.node->type = e_REAL;
                     yylval.node->line = cur_line_num;
                     yylval.node->data.real_value = atof(yytext);
+                    yylval.node->valueType = e_real;
                     return T_REAL;
                     }
 {CHAR}              {
@@ -191,6 +193,7 @@ MUTI_COMMENT    "(*"[_a-zA-Z0-9\n \r\t]*"*)"
                     yylval.node->type = e_REAL;
                     yylval.node->line = cur_line_num;
                     yylval.node->data.ch_value = yytext[0];
+                    yylval.node->valueType = e_char;
                     return T_CHAR;
                     }
 
@@ -209,6 +212,10 @@ MUTI_COMMENT    "(*"[_a-zA-Z0-9\n \r\t]*"*)"
                     yylval.node->line = cur_line_num;
                     yylval.node->data.text = (char*)malloc(strlen(yytext)+1);
                     mystrcpy(yylval.node->data.text, yytext);
+                    if(strcmp(yylval.node->data.text, "maxint") == 0)
+                        yylval.node->valueType = e_integer;
+                    else
+                        yylval.node->valueType = e_boolean;
                     return T_SYS_CON;
                     }
 {SYS_FUNCT}         {
