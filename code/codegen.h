@@ -9,16 +9,18 @@
 //#include <llvm/PassManager.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/CallingConv.h>
-#include <llvm/Bitcode/ReaderWriter.h>
-#include <llvm/Analysis/Verifier.h>
-#include <llvm/Assembly/PrintModulePass.h>
-#include <llvm/Support/IRBuilder.h>
-#include <llvm/ModuleProvider.h>
-#include <llvm/Target/TargetSelect.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
-#include <llvm/ExecutionEngine/JIT.h>
+//#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/IR/Verifier.h>
+//#include <llvm/Assembly/PrintModulePass.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/ADT/ArrayRef.h>
+//#include <llvm/ModuleProvider.h>
+//#include <llvm/Target/TargetSelect.h>
+//#include <llvm/ExecutionEngine/GenericValue.h>
+//#include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string>
+#include <iostream>
 #include "AST.h"
 #include "types.hpp"
 using namespace llvm;
@@ -31,7 +33,7 @@ public:
     // the corresponding ones in LLVM
     Value * value; 
     Type * type;
-    SymTblItem():myType(NULL), value(NULL), type(NULL), isPtr(0), isConst(0){}
+    SymTblItem():myType(NULL), isConst(0), isPtr(0), value(NULL), type(NULL){}
     
 };
 //used as symbol entry
@@ -52,29 +54,29 @@ public:
     // type checks may be done by LLVM ? or we can left it to last.
     */
    // check if the identifier has been declared
-    int checkId(char * id){
-        return !(idTable.find(std::string(id)) == idtable.end());
+    int checkId(const char * id){
+        return !(idTable.find(std::string(id)) == idTable.end());
     }
-    int checkType(char *type){
-        return !(typeTable.find(std::string(id)) == typeTable.end());
+    int checkType(const char *type){
+        return !(typeTable.find(std::string(type)) == typeTable.end());
     }
-    int checkFunc(char * func){
-        return !(namedFuncs.find(std::string(id)) == namedFuncs.end());
+    int checkFunc(const char * func){
+        return !(namedFuncs.find(std::string(func)) == namedFuncs.end());
     }
-    SymTblItem * findType(char * type){
+    SymTblItem * findType(const char * type){
         if(!checkType(type))
             return NULL;
         return typeTable[std::string(type)];
     }
-    SymTblItem * findId(char * id){
+    SymTblItem * findId(const char * id){
         if(!checkId(id))
             return NULL;
         return idTable[std::string(id)];
     }
-    Function* findFunc(char * func){
-        if(!checkFunc(id))
+    Function* findFunc(const char * func){
+        if(!checkFunc(func))
             return NULL;
-        return namedFuncs[std::string(id)];
+        return namedFuncs[std::string(func)];
     }
 };
 
@@ -84,9 +86,11 @@ private:
     LLVMContext theContext;
     IRBuilder<> theBuilder;
     std::unique_ptr<Module> theModule;
+    std::map<unsigned int, BasicBlock* > labelTable; // added by litianhao
 public:
     CodeGen():theBuilder(theContext){}
 public:
+    void print(){theModule->print(llvm::errs(), nullptr);}
     BasicBlock *currentBlock() { return blocks.back()->block; }
     CodeGenBlock *currentTables(){ return blocks.back();}
     CodeGenBlock *lastLastTables(){if(blocks.size() < 2 ) return NULL; return blocks[blocks.size()-2];}
@@ -95,20 +99,20 @@ public:
     void pushIdTable(std::string str, SymTblItem * item){ blocks.back()->idTable[str] = item;}
     void pushTypeTable(std::string str, SymTblItem * item){ blocks.back()->typeTable[str] = item;}
     // check if the identifier has been declared
-    int checkId(char * id){
-        for(int i = 0; i < blocks.size(); i++)
+    int checkId(const char * id){
+        for(unsigned int i = 0; i < blocks.size(); i++)
             if(blocks[i]->checkId(id))
                 return 1;
         return 0;
     }
-    int checkType(char *type){
-        for(int i = 0; i < blocks.size(); i++)
+    int checkType(const char *type){
+        for(unsigned int i = 0; i < blocks.size(); i++)
             if(blocks[i]->checkType(type))
                 return 1;
         return 0;
     }
     // search from back to front
-    SymTblItem* findType(char * type){
+    SymTblItem* findType(const char * type){
         for(int i = blocks.size()-1; i >= 0; i--)
         {
             SymTblItem * p = blocks[i]->findType(type);
@@ -117,7 +121,7 @@ public:
         }
         return NULL;
     }
-    SymTblItem* findId(char * id){
+    SymTblItem* findId(const char * id){
         for(int i = blocks.size()-1; i >= 0; i--)
         {
             SymTblItem * p = blocks[i]->findId(id);
@@ -126,7 +130,7 @@ public:
         }
         return NULL;
     }
-    Function* findFunc(char * func){
+    Function* findFunc(const char * func){
         for(int i = blocks.size()-1; i >= 0; i--)
         {
             Function * p = blocks[i]->findFunc(func);
@@ -140,7 +144,7 @@ public:
     void G_program(AST_pNode_t p);
     Value* G_routine(AST_pNode_t p);
     Value* G_routine_head(AST_pNode_t p);
-    Value* G_compound_stmt(AST_pNode_t p); // routine_body->compound_stmt
+    
     Value* G_const_expr_list(AST_pNode_t p); //const_part->const_expr_list
     SymTblItem* G_const_value(AST_pNode_t p);
     Value* G_type_decl_list(AST_pNode_t p); // type_part->type_decl_list
@@ -152,16 +156,54 @@ public:
     void G_name_list(AST_pNode_t p, std::vector<std::string> & list);
     // get the llvm type
     Type * typeOf(BasicType* ty);
-    void AllocLocal(SymTblItem * pSym);
+    void AllocLocal(SymTblItem * pSym, const char *);
 
 
     Value* G_routine_part(AST_pNode_t p);
     Function* G_function_decl(AST_pNode_t p);
+    // TODO: procedure_decl
+    Function* G_procedure_decl(AST_pNode_t p){}
     Function* G_function_head(AST_pNode_t p);
     void G_para_decl_list(AST_pNode_t p, std::vector<std::string>& names, 
             std::vector<Type*> &types);
     void G_para_type_list(AST_pNode_t p, std::vector<Type*> &list);
-    void G_error(AST_pNode_t p);
+    void G_error(AST_pNode_t p){printf("error: line: %d\n",p->line);}
+
+    Value* G_NAME(char * name){
+        SymTblItem * pItem = findId(name);
+        if(pItem->isPtr == 1)
+            return theBuilder.CreateLoad(pItem->value);
+        else
+            return pItem->value;
+    }
+     /* code of litianhao begins*/
+    Value* G_T_NAME_VAR(AST_pNode_t p);
+    Function* G_T_NAME_FUNC(AST_pNode_t p);
+    Value* G_routine_body(AST_pNode_t p);
+    Value* G_compound_stmt(AST_pNode_t p); 
+    Value* G_stmt_list(AST_pNode_t p);
+    Value* G_stmt(AST_pNode_t p);
+    Value* G_non_label_stmt(AST_pNode_t p);
+    Value* G_assign_stmt(AST_pNode_t p);
+    Value* G_proc_stmt(AST_pNode_t p);
+    Value* G_if_stmt(AST_pNode_t p);
+    Value* G_repeat_stmt(AST_pNode_t p);
+    Value* G_while_stmt(AST_pNode_t p);
+    Value* G_for_stmt(AST_pNode_t p);
+    Value* G_case_stmt(AST_pNode_t p);
+    Value* G_direction(AST_pNode_t p);
+    Value* G_case_expr_list(AST_pNode_t p, std::vector<Value*>*  testCases, std::vector<AST_pNode_t>* statements);
+    Value* G_case_expr(AST_pNode_t p, std::vector<Value*>*  testCases, std::vector<AST_pNode_t>* statements);
+    Value* G_goto_stmt(AST_pNode_t p);
+
+    /* code of litianhao ends */
+    /* code of zjh begins */
+    /*
+    Value* G_expression_list(AST_pNode_t p);
+    value* G_expression(AST_pNode_t p);
+    value* G_expr(AST_pNode_t p);
+    value* G_term(AST_pNode_t p);
+    value* G_factor(AST_pNode_t p);*/
 };
 
 #endif
