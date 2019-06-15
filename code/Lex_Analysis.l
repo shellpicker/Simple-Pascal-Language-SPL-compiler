@@ -12,7 +12,7 @@ void mystrcpy(char *a, char *b)
 %}
 
 INTEGER         [0-9]+                        
-REAL            INTEGER"."INTEGER
+REAL            [0-9]+"."[0-9]+
 CHAR            \'[a-zA-Z]\'
 READ            "read"
 SYS_TYPE        (boolean|char|integer|real)
@@ -108,7 +108,7 @@ MUTI_COMMENT    "(*"[_a-zA-Z0-9\n \r\t]*"*)"
 
 ":="                {return T_ASSIGN;}
 
-"MOD"               {
+"MOD"|"%"           {
                     InitNode(&yylval.node);
                     yylval.node->type = e_MOD;
                     yylval.node->line = cur_line_num;
@@ -190,7 +190,7 @@ MUTI_COMMENT    "(*"[_a-zA-Z0-9\n \r\t]*"*)"
                     }
 {CHAR}              {
                     InitNode(&yylval.node);
-                    yylval.node->type = e_REAL;
+                    yylval.node->type = e_CHAR;
                     yylval.node->line = cur_line_num;
                     yylval.node->data.ch_value = yytext[0];
                     yylval.node->valueType = e_char;

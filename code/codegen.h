@@ -46,6 +46,7 @@ public:
     std::map<std::string, SymTblItem*> typeTable;
     // mapping of function and its representation in LLVM
     std::map<std::string, Function*> namedFuncs;
+    std::map<std::string, std::vector<Type*>> funcArgTypes;
     //std::map<int, 
     /*
     // mapping of user-defined types and its representation in LLVM
@@ -87,10 +88,15 @@ private:
     IRBuilder<> theBuilder;
     std::unique_ptr<Module> theModule;
     std::map<unsigned int, BasicBlock* > labelTable; // added by litianhao
+    llvm::Constant *PUTS;
+    llvm::Value *newline;
+    llvm::Constant *printfFunc;
+    llvm::Constant *scanfFunc;
 public:
     CodeGen():theBuilder(theContext){}
 public:
     void print(){theModule->print(llvm::errs(), nullptr);}
+    Value *getGEP(IRBuilder<> &Builder, Value *Base, Value *Offset) { return Builder.CreateGEP(Builder.getInt32Ty(), Base, Offset, NULL);}
     BasicBlock *currentBlock() { return blocks.back()->block; }
     CodeGenBlock *currentTables(){ return blocks.back();}
     CodeGenBlock *lastLastTables(){if(blocks.size() < 2 ) return NULL; return blocks[blocks.size()-2];}
@@ -139,6 +145,14 @@ public:
         }
         return NULL;
     }
+    std::vector<Type*>& findFuncArgTypes(const char *func)
+    {
+        for(int i = blocks.size()-1; i>=0; i--)
+        {
+            if(blocks[i]->checkFunc(func))
+                return blocks[i]->funcArgTypes[std::string(func)];
+        }
+    }
     int G_SYS_CON(AST_pNode_t p);
     Type_t G_SYS_TYPE(AST_pNode_t p); 
     void G_program(AST_pNode_t p);
@@ -157,7 +171,7 @@ public:
     // get the llvm type
     Type * typeOf(BasicType* ty);
     void AllocLocal(SymTblItem * pSym, const char *);
-
+    void AllocGlobal(SymTblItem * pSym, const char * name);
 
     Value* G_routine_part(AST_pNode_t p);
     Function* G_function_decl(AST_pNode_t p);
@@ -168,16 +182,21 @@ public:
             std::vector<Type*> &types);
     void G_para_type_list(AST_pNode_t p, std::vector<Type*> &list);
     void G_error(AST_pNode_t p){printf("error: line: %d\n",p->line);}
-
+    /*
     Value* G_NAME(char * name){
         SymTblItem * pItem = findId(name);
         if(pItem->isPtr == 1)
             return theBuilder.CreateLoad(pItem->value);
         else
             return pItem->value;
-    }
+    }*/
      /* code of litianhao begins*/
-    Value* G_T_NAME_VAR(AST_pNode_t p);
+    Value* G_T_NAME_VAR(AST_pNode_t p); // get the addr
+    Value* G_T_NAME_VALUE(AST_pNode_t p)// get value
+    {
+        Value * addr = G_T_NAME_VAR(p);
+        return theBuilder.CreateLoad(addr);
+    }
     Function* G_T_NAME_FUNC(AST_pNode_t p);
     Value* G_routine_body(AST_pNode_t p);
     Value* G_compound_stmt(AST_pNode_t p); 
@@ -185,25 +204,31 @@ public:
     Value* G_stmt(AST_pNode_t p);
     Value* G_non_label_stmt(AST_pNode_t p);
     Value* G_assign_stmt(AST_pNode_t p);
+    Value* G_args_list(AST_pNode_t p, std::vector<Value*>* ArgsVPtr, std::vector<Type*> & argTypes);
+    Value* G_args_list(AST_pNode_t p, std::vector<Value*>* ArgsVPtr);
+    Value* G_expression_list_write(AST_pNode_t p);
     Value* G_proc_stmt(AST_pNode_t p);
     Value* G_if_stmt(AST_pNode_t p);
+    Value* G_else_clause(AST_pNode_t p);
     Value* G_repeat_stmt(AST_pNode_t p);
     Value* G_while_stmt(AST_pNode_t p);
     Value* G_for_stmt(AST_pNode_t p);
     Value* G_case_stmt(AST_pNode_t p);
     Value* G_direction(AST_pNode_t p);
-    Value* G_case_expr_list(AST_pNode_t p, std::vector<Value*>*  testCases, std::vector<AST_pNode_t>* statements);
-    Value* G_case_expr(AST_pNode_t p, std::vector<Value*>*  testCases, std::vector<AST_pNode_t>* statements);
+    Value* G_case_expr_list(AST_pNode_t p, std::vector<ConstantInt*>*  testCases, std::vector<AST_pNode_t>* statements);
+    Value* G_case_expr(AST_pNode_t p, std::vector<ConstantInt*>*  testCases, std::vector<AST_pNode_t>* statements);
     Value* G_goto_stmt(AST_pNode_t p);
-
+    void Init_write();
+    void Init_printf();
+    void Init_scanf();
     /* code of litianhao ends */
     /* code of zjh begins */
-    /*
+    void LogError(const char *str);
     Value* G_expression_list(AST_pNode_t p);
-    value* G_expression(AST_pNode_t p);
-    value* G_expr(AST_pNode_t p);
-    value* G_term(AST_pNode_t p);
-    value* G_factor(AST_pNode_t p);*/
+    Value* G_expression(AST_pNode_t p);
+    Value* G_expr(AST_pNode_t p);
+    Value* G_term(AST_pNode_t p);
+    Value* G_factor(AST_pNode_t p);
 };
 
 #endif

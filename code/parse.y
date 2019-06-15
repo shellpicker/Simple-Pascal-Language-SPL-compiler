@@ -48,7 +48,6 @@
 %type <node> goto_stmt expression_list expression expr
 %type <node> term factor args_list
 
-%left T_PLUS T_MINUS
 
 %start program
 
@@ -84,7 +83,7 @@ const_expr_list : const_expr_list T_NAME T_EQUAL const_value T_SEMI {
     InitNode(&$$); $$->type = e_const_expr_list; $$->child = $1;
     $1->sibling = $3;}
     ;
-const_value : T_INTEGER {
+const_value :  T_INTEGER {
     InitNode(&$$); $$->type = e_const_value; $$->child = $1;}
     | T_REAL {
     InitNode(&$$); $$->type = e_const_value; $$->child = $1;}
@@ -125,9 +124,7 @@ type_decl : simple_type_decl {
 simple_type_decl : T_SYS_TYPE {
     InitNode(&$$); $$->type = e_simple_type_decl; $$->child = $1;
     }
-    | T_NAME {
-    InitNode(&$$); $$->type = e_simple_type_decl; $$->child = $1;
-    }
+    
     | T_LP name_list T_RP {
     InitNode(&$$); $$->type = e_simple_type_decl; $$->child = $2;
     }
@@ -146,6 +143,9 @@ simple_type_decl : T_SYS_TYPE {
     | T_NAME T_DOTDOT T_NAME {
     InitNode(&$$); $$->type = e_simple_type_decl; $$->child = $1;
     $1->sibling = $3;
+    }
+    | T_NAME {
+    InitNode(&$$); $$->type = e_simple_type_decl; $$->child = $1;
     }
     ;
 array_type_decl : T_ARRAY T_LB simple_type_decl T_RB T_OF type_decl{
@@ -334,20 +334,22 @@ assign_stmt : T_NAME T_ASSIGN expression {
     $1->sibling = $3; $3->sibling = $5;
     }
     ;
-proc_stmt : T_NAME {
-    InitNode(&$$); $$->type = e_proc_stmt; $$->child = $1;
-    }
-    | T_NAME T_LP args_list T_RP {
+proc_stmt :  T_NAME T_LP args_list T_RP {
     InitNode(&$$); $$->type = e_proc_stmt; $$->child = $1;
     $1->sibling = $3;
     }
-    | T_SYS_PROC {
+    |
+    T_NAME {
     InitNode(&$$); $$->type = e_proc_stmt; $$->child = $1;
     }
     | T_SYS_PROC T_LP expression_list T_RP {
     InitNode(&$$); $$->type = e_proc_stmt; $$->child = $1;
     $1->sibling = $3;
     }
+    | T_SYS_PROC {
+    InitNode(&$$); $$->type = e_proc_stmt; $$->child = $1;
+    }
+    
     | T_READ T_LP factor T_RP {
     InitNode(&$$); $$->type = e_proc_stmt; $$->child = $1;
     $1->sibling = $3;
@@ -486,10 +488,7 @@ term : term T_MUL factor {
     InitNode(&$$); $$->type = e_term; $$->child = $1;
     }
     ;
-factor : T_NAME {
-    InitNode(&$$); $$->type = e_factor; $$->child = $1;
-    }
-    | T_NAME T_LP args_list T_RP {
+factor :  T_NAME T_LP args_list T_RP {
     InitNode(&$$); $$->type = e_factor; $$->child = $1;
     $1->sibling = $3;
     }
@@ -521,6 +520,10 @@ factor : T_NAME {
     | T_NAME T_DOT T_NAME {
     InitNode(&$$); $$->type = e_factor; $$->child = $1;
     $1->sibling = $3;
+    }
+    |
+    T_NAME {
+    InitNode(&$$); $$->type = e_factor; $$->child = $1;
     }
     ;
 args_list : args_list T_COMMA expression {
