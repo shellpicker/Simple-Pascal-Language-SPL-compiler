@@ -89,7 +89,6 @@ Value* CodeGen::G_const_expr_list(AST_pNode_t p)
 
     if(checkId(p_NAME->data.text))
     {
-        //TODO: generate error;
         G_error(p_NAME);
     }
     SymTblItem * pSym = G_const_value(p_const_value);;
@@ -271,6 +270,14 @@ Type* CodeGen::typeOf(BasicType * ty)
         break;
     }
 }
+Type_t CodeGen::myTypeOf(BasicType * ty)
+{
+    if(ty->type == e_userdefined)
+    {
+        return myTypeOf(findType(static_cast<UserDefinedType*>(ty)->name.c_str())->myType);
+    }
+    return ty->type;
+}
 Value* CodeGen::G_routine_part(AST_pNode_t p)
 {
     
@@ -295,7 +302,7 @@ Function* CodeGen::G_function_decl(AST_pNode_t p)
     Function* func = G_function_head(p->child);
     G_routine(p->child->sibling);
     Value* retVal = currentTables()->findId(p->child->child->data.text)->value;
-    theBuilder.CreateRet(theBuilder.CreateLoad(retVal));
+    theBuilder.CreateRet(theBuilder.CreateLoad(retVal, "return value"));
     popBlock();
     // update the builder
     theBuilder.SetInsertPoint(currentBlock());
@@ -310,7 +317,7 @@ Function* CodeGen::G_function_head(AST_pNode_t p)
 
     if(currentTables()->checkFunc(p_NAME->data.text))
     {
-        // TODO function defined before
+        G_error(p_NAME);
         return NULL;
     }
     vector<Type *> argTypes;
@@ -337,7 +344,7 @@ Function* CodeGen::G_function_head(AST_pNode_t p)
     pItem->myType = p_retType;
     AllocLocal(pItem, p_NAME->data.text);
     pushIdTable(std::string(p_NAME->data.text), pItem);
-        // store the types of arguments
+    // store the types of arguments
     lastLastTables()->funcArgTypes[std::string(p_NAME->data.text)] = argTypes;
     // allocate space for arguments
     index = 0;
@@ -394,11 +401,17 @@ Value* CodeGen::G_T_NAME_VAR(AST_pNode_t p){
     SymTblItem * pItem = CodeGen::findId(p->data.text);
     if(pItem->isPtr)
     {
-        return theBuilder.CreateLoad(pItem->value);
+        return theBuilder.CreateLoad(pItem->value, "value");
     }
     else
         return pItem->value;
 }
+Value* CodeGen::G_T_NAME_VALUE(AST_pNode_t p)
+{
+    Value * addr = G_T_NAME_VAR(p);
+    return theBuilder.CreateLoad(addr, "var addr");
+}
+
 Function* CodeGen::G_T_NAME_FUNC(AST_pNode_t p){
     return CodeGen::findFunc(p->data.text);
 }
@@ -465,7 +478,9 @@ Value* CodeGen::G_assign_stmt(AST_pNode_t p){
     AST_pNode_t p_T_NAME = p->child;
     if (p_T_NAME->sibling->sibling == NULL){ // assign_stmt : T_NAME T_ASSIGN expression
         AST_pNode_t p_expression = p_T_NAME->sibling;
-        return theBuilder.CreateStore(G_expression(p_expression), G_T_NAME_VAR(p_T_NAME));
+        Value* exprVal = G_expression(p_expression);
+        Value* var = G_T_NAME_VAR(p_T_NAME);
+        return theBuilder.CreateStore(exprVal, var);
     } else if (p_T_NAME->sibling->type == e_expression){ // assign_stmt : T_NAME T_LB expression T_RB T_ASSIGN expression
         return nullptr;
     } else { //  assign_stmt : T_NAME T_DOT T_NAME T_ASSIGN expression
@@ -579,14 +594,13 @@ Value* CodeGen::G_proc_stmt(AST_pNode_t p){
             }
         }
     }
+    return nullptr;
 }
 
 Value* CodeGen::G_if_stmt(AST_pNode_t p){ // if_stmt : T_IF expression T_THEN stmt else_clause
     AST_pNode_t p_expression = p->child;
     AST_pNode_t p_stmt = p_expression->sibling;
     AST_pNode_t p_else_clause = p_stmt->sibling;
-
-    //Value* CondV = G_expression(p_expression); debug
     
     Function* theFunction = theBuilder.GetInsertBlock()->getParent();
 
@@ -598,7 +612,7 @@ Value* CodeGen::G_if_stmt(AST_pNode_t p){ // if_stmt : T_IF expression T_THEN st
 
     theBuilder.SetInsertPoint(thenBlock);
 
-    Value* thenV = G_stmt(p_stmt);
+    G_stmt(p_stmt);
 
     theBuilder.CreateBr(mergeBlock);
     thenBlock = theBuilder.GetInsertBlock();
@@ -629,26 +643,20 @@ Value* CodeGen::G_repeat_stmt(AST_pNode_t p){ // repeat_stmt : T_REPEAT stmt_lis
 
     Function *theFunction = theBuilder.GetInsertBlock()->getParent();
 
-    // Make the new basic block for the loop header, inserting after current
-    // block.
-    BasicBlock *loopBB = BasicBlock::Create(theContext, "loop", theFunction);
+    BasicBlock *loopBlock = BasicBlock::Create(theContext, "loop", theFunction);
 
-    // Insert an explicit fall through from the current block to the loopBB.
-    theBuilder.CreateBr(loopBB);
+    theBuilder.CreateBr(loopBlock);
 
-    // Start insertion in loopBB.
-    theBuilder.SetInsertPoint(loopBB);
+    theBuilder.SetInsertPoint(loopBlock);
     G_stmt_list(p_stmt_list);
 
-    // Create the "after loop" block and insert it.
-    BasicBlock *afterBB =
+    BasicBlock *afterBlock =
             BasicBlock::Create(theContext, "afterloop", theFunction);
 
-    // Insert the conditional branch into the end of loopEndBB.
-    theBuilder.CreateCondBr(G_expression(p_expression), afterBB, loopBB);
+    theBuilder.CreateCondBr(G_expression(p_expression), afterBlock, loopBlock);
+    loopBlock = theBuilder.GetInsertBlock();
 
-    // Any new code will be inserted in afterBB.
-    theBuilder.SetInsertPoint(afterBB);
+    theBuilder.SetInsertPoint(afterBlock);
 
     return Constant::getNullValue(Type::getInt32PtrTy(theContext));
 }
@@ -658,34 +666,22 @@ Value* CodeGen::G_while_stmt(AST_pNode_t p){ // while_stmt : T_WHILE expression 
 
     Function *theFunction = theBuilder.GetInsertBlock()->getParent();
 
-    BasicBlock *entryBB = BasicBlock::Create(theContext, "entry", theFunction);
+    BasicBlock *whileBlock = BasicBlock::Create(theContext, "while", theFunction);
+    BasicBlock *loopBlock = BasicBlock::Create(theContext, "loop");
+    BasicBlock *afterBlock = BasicBlock::Create(theContext, "afterloop");
 
-    // Insert an explicit fall through from the current block to the entryBB.
-    theBuilder.CreateBr(entryBB);
+    theBuilder.CreateBr(whileBlock);
+    theBuilder.SetInsertPoint(whileBlock);
 
-    theBuilder.SetInsertPoint(entryBB);
+    theBuilder.CreateCondBr(G_expression(p_expression), loopBlock, afterBlock);
 
-    // Make the new basic block for the loop header, inserting after current
-    // block.
-    BasicBlock *loopBB = BasicBlock::Create(theContext, "loop");
-    // Create the "after loop" block and insert it.
-    BasicBlock *afterBB = BasicBlock::Create(theContext, "afterloop");
-
-    // Insert the conditional branch into the end of loopEndBB.
-    theBuilder.CreateCondBr(G_expression(p_expression), loopBB, afterBB);
-
-    theFunction->getBasicBlockList().push_back(loopBB);
-    // Start insertion in loopBB.
-    theBuilder.SetInsertPoint(loopBB);
-
+    theFunction->getBasicBlockList().push_back(loopBlock);
+    theBuilder.SetInsertPoint(loopBlock);
     G_stmt(p_stmt);
+    theBuilder.CreateBr(whileBlock);
 
-    // Insert an explicit fall through from the current block to the loopBB.
-    theBuilder.CreateBr(entryBB);
-
-    theFunction->getBasicBlockList().push_back(afterBB);
-    // Any new code will be inserted in afterBB.
-    theBuilder.SetInsertPoint(afterBB);
+    theFunction->getBasicBlockList().push_back(afterBlock);
+    theBuilder.SetInsertPoint(afterBlock);
 
     return Constant::getNullValue(Type::getInt32PtrTy(theContext));
 }
@@ -697,61 +693,53 @@ Value* CodeGen::G_for_stmt(AST_pNode_t p){ // for_stmt : T_FOR T_NAME T_ASSIGN e
     AST_pNode_t p_stmt = p_expression2->sibling;
 
     // Emit the start code first, without 'variable' in scope.
-    Value *StartVal = G_expression(p_expression1);
-    Value *EndCond = G_expression(p_expression2);
+    Value *startVal = G_expression(p_expression1);
+    Value *endCond = G_expression(p_expression2);
     Value* loopVar = G_T_NAME_VAR(p_T_NAME);
-    theBuilder.CreateStore(StartVal, loopVar);
+    theBuilder.CreateStore(startVal, loopVar);
+
     // Make the new basic block for the loop header, inserting after current
     // block.
     Function *theFunction = theBuilder.GetInsertBlock()->getParent();
-    BasicBlock *PreheaderBB = theBuilder.GetInsertBlock();
-    BasicBlock *loopBB =
+    BasicBlock *loopBlock =
         BasicBlock::Create(theContext, "loop", theFunction);
 
-    // Insert an explicit fall through from the current block to the loopBB.
-    theBuilder.CreateBr(loopBB);
+    // Insert an explicit fall through from the current block to the loopBlock.
+    theBuilder.CreateBr(loopBlock);
 
-    // Start insertion in loopBB.
-    theBuilder.SetInsertPoint(loopBB);
-    /*
-    // Start the PHI node with an entry for Start.
-    PHINode *Variable = theBuilder.CreatePHI(Type::getInt32Ty(theContext),
-                                        2, "forloop");
-    Variable->addIncoming(StartVal, PreheaderBB); */
-    /* TODO 
-    // Within the loop, the variable is defined equal to the PHI node.  If it
-    // shadows an existing variable, we have to restore it, so save it now.
+    // start insertion in loopBlock.
+    theBuilder.SetInsertPoint(loopBlock);
 
-    NamedValues[VarName] = Variable; */
-
-    // Emit the body of the loop.  This, like any other expr, can change the
-    // current BB.  Note that we ignore the value computed by the body, but don't
-    // allow an error.
     G_stmt(p_stmt);
 
     // Emit the step value.
-    Value *StepVal = G_direction(p_direction);
-    Value* NextVar = theBuilder.CreateAdd(theBuilder.CreateLoad(loopVar), StepVal, "nextvar");
-    theBuilder.CreateStore(NextVar, loopVar);
+    Value* nextVar;
+    if (p_direction->child->type == e_TO){
+        nextVar = theBuilder.CreateAdd(theBuilder.CreateLoad(loopVar), ConstantInt::get(theContext, APInt(32, 1)), "nextvar");
+    } else {
+        nextVar = theBuilder.CreateSub(theBuilder.CreateLoad(loopVar), ConstantInt::get(theContext, APInt(32, 1)), "nextvar");
+    }
+    theBuilder.CreateStore(nextVar, loopVar);
 
+    Value *Comp;
     // Compute the end condition.
-    
-    Value *Comp = theBuilder.CreateICmpULE(NextVar, EndCond, "cmptmp");
+    if (p_direction->child->type == e_TO){
+        Comp = theBuilder.CreateICmpULE(nextVar, endCond, "cmptmp");
+    } else {
+        Comp = theBuilder.CreateICmpULE(endCond, nextVar, "cmptmp");
+    }
 
 
     // Create the "after loop" block and insert it.
-    BasicBlock *loopEndBB = theBuilder.GetInsertBlock();
-    BasicBlock *afterBB =
+    BasicBlock *afterBlock =
         BasicBlock::Create(theContext, "afterloop", theFunction);
 
-    // Insert the conditional branch into the end of loopEndBB.
-    theBuilder.CreateCondBr(Comp, loopBB, afterBB);
+    // Insert the conditional branch into the end of loopendBlock.
+    theBuilder.CreateCondBr(Comp, loopBlock, afterBlock);
 
-    // Any new code will be inserted in afterBB.
-    theBuilder.SetInsertPoint(afterBB);
-    /* 
-    // Add a new entry to the PHI node for the backedge.
-    Variable->addIncoming(NextVar, loopEndBB); */
+    // Any new code will be inserted in afterBlock.
+    theBuilder.SetInsertPoint(afterBlock);
+
 
     return Constant::getNullValue(Type::getInt32PtrTy(theContext));
 
@@ -765,21 +753,21 @@ Value* CodeGen::G_case_stmt(AST_pNode_t p){ // case_stmt : T_CASE expression T_O
     Function *theFunction = theBuilder.GetInsertBlock()->getParent();
     G_case_expr_list(p_case_expr_list, testCases, statements);
 
-    BasicBlock *exitBB = BasicBlock::Create(theContext, "exit");
-    SwitchInst *switchInst = theBuilder.CreateSwitch(G_expression(p_expression), exitBB, testCases->size());
+    BasicBlock *afterBlock = BasicBlock::Create(theContext, "after");
+    SwitchInst *switchInst = theBuilder.CreateSwitch(G_expression(p_expression), afterBlock, testCases->size());
 
     for (unsigned int i = 0; i < (testCases->size()); i++) {
         // Make the new basic block for the loop header, inserting after current
         // block.
-        BasicBlock *caseBB = BasicBlock::Create(theContext, "case", theFunction);
-        theBuilder.SetInsertPoint(caseBB);
+        BasicBlock *caseBlock = BasicBlock::Create(theContext, "case", theFunction);
+        theBuilder.SetInsertPoint(caseBlock);
         G_stmt((*statements)[i]);
-        theBuilder.CreateBr(exitBB);
-        switchInst->addCase((*testCases)[i], caseBB);
+        theBuilder.CreateBr(afterBlock);
+        switchInst->addCase((*testCases)[i], caseBlock);
     }
 
-    theFunction->getBasicBlockList().push_back(exitBB);
-    theBuilder.SetInsertPoint(exitBB);
+    theFunction->getBasicBlockList().push_back(afterBlock);
+    theBuilder.SetInsertPoint(afterBlock);
     return nullptr;
 }
 Value* CodeGen::G_case_expr_list(AST_pNode_t p, std::vector<ConstantInt*>*  testCases, std::vector<AST_pNode_t>* statements){
@@ -801,18 +789,12 @@ Value* CodeGen::G_case_expr(AST_pNode_t p, std::vector<ConstantInt*>* testCases,
     }
     return nullptr;
 }
-Value* CodeGen::G_direction(AST_pNode_t p){
-    if (p->child->type == e_TO){
-        return ConstantInt::get(theContext, APInt(32, 1));
-    } else {
-        return ConstantInt::get(theContext, APInt(32, -1));
-    }
-}
 
 
 Value* CodeGen::G_goto_stmt(AST_pNode_t p){ // goto_stmt : T_GOTO T_INTEGER
     AST_pNode_t p_T_INTEGER = p->child;
     BasicBlock *des = labelTable[p_T_INTEGER->data.int_value];
+
     theBuilder.CreateBr(des);
     return nullptr;
 }
@@ -1042,10 +1024,13 @@ Value* CodeGen::G_factor(AST_pNode_t p)
         if(tmp->sibling == NULL) //NAME
         {
             idItem = findId(tmp->data.text);
-            if(idItem == NULL) LogError("Identifier Undefined");
+            if(idItem == NULL) {
+                cout << "Identifier " << p->child->data.text << " undefined" << endl;
+
+            }
             else
             {
-                p->valueType = idItem->myType->type;
+                p->valueType = myTypeOf(idItem->myType);
                 return G_T_NAME_VALUE(tmp);
                 //return idItem->value;
             }

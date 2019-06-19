@@ -170,6 +170,7 @@ public:
     void G_name_list(AST_pNode_t p, std::vector<std::string> & list);
     // get the llvm type
     Type * typeOf(BasicType* ty);
+    Type_t myTypeOf(BasicType* ty);
     void AllocLocal(SymTblItem * pSym, const char *);
     void AllocGlobal(SymTblItem * pSym, const char * name);
 
@@ -182,6 +183,7 @@ public:
             std::vector<Type*> &types);
     void G_para_type_list(AST_pNode_t p, std::vector<Type*> &list);
     void G_error(AST_pNode_t p){printf("error: line: %d\n",p->line);}
+    
     /*
     Value* G_NAME(char * name){
         SymTblItem * pItem = findId(name);
@@ -192,11 +194,7 @@ public:
     }*/
      /* code of litianhao begins*/
     Value* G_T_NAME_VAR(AST_pNode_t p); // get the addr
-    Value* G_T_NAME_VALUE(AST_pNode_t p)// get value
-    {
-        Value * addr = G_T_NAME_VAR(p);
-        return theBuilder.CreateLoad(addr);
-    }
+    Value* G_T_NAME_VALUE(AST_pNode_t p);// get value
     Function* G_T_NAME_FUNC(AST_pNode_t p);
     Value* G_routine_body(AST_pNode_t p);
     Value* G_compound_stmt(AST_pNode_t p); 

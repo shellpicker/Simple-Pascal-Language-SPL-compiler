@@ -9,7 +9,6 @@
 
 %union{
     int token;
-    char * text;
     AST_pNode_t node;
 }
 

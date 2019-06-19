@@ -19,11 +19,10 @@ enum eNodeType_t{
     e_expression_list, e_expression, e_expr, e_term, e_factor, e_args_list,
     // some terminals also need to be defined
     e_NAME, 
-    //e_DOT, // TODO: is e_DOT needed?
     e_MUL, e_DIV, e_UNEQUAL, e_NOT, e_PLUS, e_MINUS, e_GE, e_GT,
     e_LE, e_LT, e_EQUAL, e_MOD, e_AND, e_OR,
     e_SYS_CON, e_SYS_FUNCT, e_SYS_PROC, e_SYS_TYPE, 
-    e_READ,//TODO: what's this?
+    e_READ,
     e_INTEGER, e_REAL, e_CHAR,
     e_TO, e_DOWNTO // note these two nodes
     };

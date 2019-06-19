@@ -117,10 +117,9 @@ union YYSTYPE
 #line 10 "parse.y" /* yacc.c:1921  */
 
     int token;
-    char * text;
     AST_pNode_t node;
 
-#line 124 "parse.h" /* yacc.c:1921  */
+#line 123 "parse.h" /* yacc.c:1921  */
 };
 
 typedef union YYSTYPE YYSTYPE;

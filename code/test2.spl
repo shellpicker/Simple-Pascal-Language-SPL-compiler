@@ -1,6 +1,8 @@
 program hello;
+type
+	int = integer;
 var
-	i : integer;
+	i : int;
 
 function go(a : integer): integer;
 begin
@@ -23,7 +25,6 @@ begin
 	;
 end
 ;
-
 begin
 	i := go(10);
 	writeln(i);
