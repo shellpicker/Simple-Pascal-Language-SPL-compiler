@@ -1,0 +1,77 @@
+program hello;
+var	
+	i, x: integer;
+function sum_for(x: integer): integer;
+var 
+    i : integer;
+begin
+    sum_for := 0;
+    for i := x downto 1 do
+    begin
+        sum_for := sum_for + i; 
+    end;
+end
+;
+
+function sum_while(x: integer): integer;
+var 
+    i : integer;
+    function self(x : integer) : integer;
+    begin
+        self := x;
+    end;
+begin
+    sum_while := 0;
+	i := 0;
+    while i <= x do
+    begin
+        sum_while := sum_while + self(i); 
+		i := i + 1;
+    end;
+end
+;
+
+function sum_repeat(x: integer): integer;
+var 
+    i : integer;
+begin
+    sum_repeat := 0;
+	i := 0;
+    repeat
+		i := i + 1;
+        sum_repeat := sum_repeat + i; 
+    until i >= x;
+end
+; 
+
+function sum_goto(x: integer): integer;
+var 
+    i : integer;
+begin
+    sum_goto := 0;
+	i := 0;
+	1: i := i + 1;
+    sum_goto := sum_goto + i; 
+    if i < x then
+    begin 
+        goto 1;
+    end
+    else
+    begin
+        i := i;
+    end
+    ;
+end
+; 
+
+begin
+    read(i);
+	read(x);
+	case (i) of
+		1: writeln(sum_for(x));
+		2: writeln(sum_while(x));
+		3: writeln(sum_repeat(x));
+        4: writeln(sum_goto(x));
+	end; 
+end
+.
