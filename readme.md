@@ -1,26 +1,26 @@
-### A simple compiler for SPL
+ï»¿# A simple compiler for SPL
 
-code/ ÎÄ¼ş¼ĞÖĞ
-buildGraph.cÓÃÀ´Éú³ÉÓï·¨Ê÷µÄ¿ÉÊÓ»¯Ğ§¹û
-Lex_Analysis.cÊÇÓÃflex½âÎöLex_Analysis.lµÃµ½µÄÎÄ¼ş
-parse.c parse.hÊÇÓÃbison½âÎöparse.yµÃµ½µÄÎÄ¼ş
-AST.c AST.h¶¨ÒåÁË³éÏóÓï·¨Ê÷µÄ½Úµã
-codegen.cpp codegen.hÓÃÓÚÓïÒå·ÖÎöºÍ´úÂëÉú³É
-main.c ÓÃÀ´Éú³É±àÒëÆ÷(ÎÒÃÇ·ÅÁËÒ»¸öÎÒÃÇ±àÒëµÃµ½µÄmain)
-test2.spl test4.spl test6.splÎªÀÏÊ¦Ìá¹©µÄ²âÊÔÑùÀı
-test.splÎªÎÒÃÇ×Ô¼ºµÄ²âÊÔÑùÀı
+code/ æ–‡ä»¶å¤¹ä¸­
+buildGraph.cç”¨æ¥ç”Ÿæˆè¯­æ³•æ ‘çš„å¯è§†åŒ–æ•ˆæœ
+Lex_Analysis.cæ˜¯ç”¨flexè§£æLex_Analysis.lå¾—åˆ°çš„æ–‡ä»¶
+parse.c parse.hæ˜¯ç”¨bisonè§£æparse.yå¾—åˆ°çš„æ–‡ä»¶
+AST.c AST.hå®šä¹‰äº†æŠ½è±¡è¯­æ³•æ ‘çš„èŠ‚ç‚¹
+codegen.cpp codegen.hç”¨äºè¯­ä¹‰åˆ†æå’Œä»£ç ç”Ÿæˆ
+main.c ç”¨æ¥ç”Ÿæˆç¼–è¯‘å™¨(æˆ‘ä»¬æ”¾äº†ä¸€ä¸ªæˆ‘ä»¬ç¼–è¯‘å¾—åˆ°çš„main)
+test2.spl test4.spl test6.splä¸ºè€å¸ˆæä¾›çš„æµ‹è¯•æ ·ä¾‹
+test.splä¸ºæˆ‘ä»¬è‡ªå·±çš„æµ‹è¯•æ ·ä¾‹
 
-run.sh ½Å±¾Ê¹ÓÃ·½·¨ÈçÏÂ£º
-Éú³É±àÒëÆ÷£º
+run.sh è„šæœ¬ä½¿ç”¨æ–¹æ³•å¦‚ä¸‹ï¼š
+ç”Ÿæˆç¼–è¯‘å™¨ï¼š
 ./run.sh -g
 
-Ê¹ÓÃÉú³ÉµÄ±àÒëÆ÷±àÒëtest.spl³ÌĞò(¿ÉµÃµ½test.llÎÄ¼ş)²¢ÔËĞĞ(ĞèÒª°²×°clang)
+ä½¿ç”¨ç”Ÿæˆçš„ç¼–è¯‘å™¨ç¼–è¯‘test.splç¨‹åº(å¯å¾—åˆ°test.llæ–‡ä»¶)å¹¶è¿è¡Œ(éœ€è¦å®‰è£…clang)
 ./run.sh -c test.spl
-(×¢£ºÈç¹ûÃ»×°clang£¬¿ÉÒÔÔÚËüÌáÊ¾´íÎóÖ®ºóÖ´ĞĞ
+(æ³¨ï¼šå¦‚æœæ²¡è£…clangï¼Œå¯ä»¥åœ¨å®ƒæç¤ºé”™è¯¯ä¹‹åæ‰§è¡Œ
 lli test.ll
-Ê¹ÓÃllvmÌá¹©µÄlliÔËĞĞtest.ll
+ä½¿ç”¨llvmæä¾›çš„lliè¿è¡Œtest.ll
 
-gen.shÊ¹ÓÃ·½·¨ÈçÏÂ£º
-»ñµÃtest.spl³ÌĞòµÄ¿ÉÊÓ»¯Óï·¨Ê÷:
+gen.shä½¿ç”¨æ–¹æ³•å¦‚ä¸‹ï¼š
+è·å¾—test.splç¨‹åºçš„å¯è§†åŒ–è¯­æ³•æ ‘:
 ./gen.sh test.spl
 
